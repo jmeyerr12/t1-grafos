@@ -1,0 +1,17 @@
+// Nome do grafo (primeira linha obrigatória)
+MeuGrafoDeTeste
+
+// --- componente 1 ---
+A
+B
+C
+A--B 3
+B--C 4
+C--A 5
+
+// --- componente 2 ---
+D
+E
+D--E          // peso implícito = 0
+
+// linha vazia ou comentário são ignorados
