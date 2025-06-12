@@ -23,6 +23,6 @@ int main(void) {
 
   printf("arestas de corte: %s\n", s=arestas_corte(g));
   free(s);
-
+ 
   return ! destroi_grafo(g);
 }

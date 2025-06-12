@@ -99,6 +99,7 @@ grafo *le_grafo(FILE *f) {
             char v1[256], v2[256];
             int peso = 0;
             if (sscanf(linha, "%255s %255s %d", v1, v2, &peso) < 2) continue;
+            if (peso == 0) peso = 1;
             vertice *a = busca_vertice(g, v1);
             vertice *b = busca_vertice(g, v2);
             if (a && b) adiciona_aresta(g, a, b, peso);
@@ -208,28 +209,60 @@ unsigned int bipartido(grafo *g) {
     return 1;
 }
 
-// -----------------------------------------------------
-// Distâncias BFS não ponderadas
-
-static void bfs_dist(grafo *g, unsigned int s, int *d) {
+static void dijkstra_dist(grafo *g, unsigned int s, int *d) {
     unsigned int n = g->n_vertices;
-    for (unsigned int i = 0; i < n; i++) d[i] = -1;
-    int *fila = malloc(n * sizeof(int));
+
+    int *estado = calloc(n, sizeof(int));   // 0: não visitado, 1: na fila, 2: processado
+    int *pai = calloc(n, sizeof(int));      // opcional: se quiser rastrear caminhos
+
+    for (unsigned int i = 0; i < n; i++) {
+        d[i] = -1;
+        pai[i] = -1;
+    }
 
     d[s] = 0;
-    int ini = 0, fim = 0;
-    fila[fim++] = s;
-    while (ini < fim) {
-        int u = fila[ini++];
-        for (vizinho *adj = g->vetor[u]->adj; adj; adj = adj->prox) {
-            unsigned int v = adj->vert->id;
-            if (d[v] == -1) {
-                d[v] = d[u] + 1;
-                fila[fim++] = v;
+    estado[s] = 1;
+
+    int *fila = malloc(n * sizeof(int));
+    int tam = 0;
+    fila[tam++] = s;
+
+    while (tam > 0) {
+        // Encontra vértice com menor custo na fila
+        int idx_min = 0;
+        for (int i = 1; i < tam; i++) {
+            if (d[fila[i]] < d[fila[idx_min]]) {
+                idx_min = i;
             }
         }
+
+        int v = fila[idx_min];
+        // Remove v da fila
+        fila[idx_min] = fila[--tam];
+
+        for (vizinho *adj = g->vetor[v]->adj; adj; adj = adj->prox) {
+            unsigned int u = adj->vert->id;
+            int custo = d[v] + adj->peso;
+
+            if (estado[u] == 1) {
+                if (custo < d[u]) {
+                    d[u] = custo;
+                    pai[u] = v;
+                }
+            } else if (estado[u] == 0) {
+                d[u] = custo;
+                pai[u] = v;
+                fila[tam++] = u;
+                estado[u] = 1;
+            }
+        }
+
+        estado[v] = 2;
     }
+
     free(fila);
+    free(pai);     // se não for usar caminhos
+    free(estado);
 }
 
 // -----------------------------------------------------
@@ -248,10 +281,11 @@ char *diametros(grafo *g) {
     int *dist = malloc(n * sizeof(int));
 
     for (unsigned int v = 0; v < n; v++) {
-        bfs_dist(g, v, dist);
+        dijkstra_dist(g, v, dist);
         int ecc = 0;
         for (unsigned int u = 0; u < n; u++)
-            if (comp[u] == comp[v] && dist[u] > ecc) ecc = dist[u];
+            if (comp[u] == comp[v] && dist[u] != -1 && dist[u] > ecc)
+                ecc = dist[u];
         if (ecc > diam[comp[v]]) diam[comp[v]] = ecc;
     }
 
@@ -282,15 +316,15 @@ char *diametros(grafo *g) {
 // -----------------------------------------------------
 // DFS para vértices/arestas de corte
 
-static void dfs_cortes(
+static void dfs_cortes_rec(
     grafo *g, unsigned int u,
     int *visit, int *disc, int *low, int *parent,
     char *art, unsigned int *n_art,
-    struct { unsigned int a, b; } *brid, unsigned int *n_br)
+    struct { unsigned int a, b; } *brid, unsigned int *n_br,
+    int *tempo)
 {
-    static int tempo = 0;
     visit[u] = 1;
-    disc[u] = low[u] = ++tempo;
+    disc[u] = low[u] = ++(*tempo);
     int filhos = 0;
 
     for (vizinho *adj = g->vetor[u]->adj; adj; adj = adj->prox) {
@@ -298,7 +332,7 @@ static void dfs_cortes(
         if (!visit[v]) {
             parent[v] = u;
             filhos++;
-            dfs_cortes(g, v, visit, disc, low, parent, art, n_art, brid, n_br);
+            dfs_cortes_rec(g, v, visit, disc, low, parent, art, n_art, brid, n_br, tempo);
             if (low[v] < low[u]) low[u] = low[v];
 
             if ((parent[u] == -1 && filhos > 1) ||
@@ -316,55 +350,82 @@ static void dfs_cortes(
     }
 }
 
-char *vertices_corte(grafo *g) {
-    if (!g) return NULL;
-    unsigned int n = g->n_vertices;
-    if (!n) return dup_string("");
+void dfs_cortes(
+    grafo *g, unsigned int u,
+    int *visit, int *disc, int *low, int *parent,
+    char *art, unsigned int *n_art,
+    struct { unsigned int a, b; } *brid, unsigned int *n_br)
+{
+    int tempo = 0;
+    dfs_cortes_rec(g, u, visit, disc, low, parent, art, n_art, brid, n_br, &tempo);
+}
 
-    int *visit  = calloc(n, sizeof(int));
-    int *disc   = calloc(n, sizeof(int));
-    int *low    = calloc(n, sizeof(int));
+int cmp_str(const void *a, const void *b) {
+    const char **sa = (const char **)a;
+    const char **sb = (const char **)b;
+    return strcmp(*sa, *sb);
+}
+
+char *vertices_corte(grafo *g) {
+    unsigned int n = g->n_vertices;
+
+    int *visit = calloc(n, sizeof(int));
+    int *disc = calloc(n, sizeof(int));
+    int *low = calloc(n, sizeof(int));
     int *parent = malloc(n * sizeof(int));
-    char *art   = calloc(n, sizeof(char));
+    char *art = calloc(n, sizeof(char));  // vértices de corte
+
     for (unsigned int i = 0; i < n; i++) parent[i] = -1;
 
     unsigned int n_art = 0;
-    struct { unsigned int a, b; } dummy[1];
-    unsigned int nb = 0;
+    struct { unsigned int a, b; } *brid = malloc(n * sizeof(*brid));
+    unsigned int n_br = 0;
 
-    for (unsigned int i = 0; i < n; i++)
-        if (!visit[i])
-            dfs_cortes(g, i, visit, disc, low, parent, art, &n_art, dummy, &nb);
-
-    if (!n_art) {
-        free(visit); free(disc); free(low); free(parent); free(art);
-        return dup_string("");
+    for (unsigned int i = 0; i < n; i++) {
+        if (!visit[i]) {
+            dfs_cortes(g, i, visit, disc, low, parent, art, &n_art, brid, &n_br);
+        }
     }
 
-    char **lista = malloc(n_art * sizeof(char *));
-    unsigned int k = 0;
-    for (unsigned int i = 0; i < n; i++)
-        if (art[i]) lista[k++] = g->vetor[i]->nome;
-
-    for (unsigned int i = 0; i < k; i++)
-        for (unsigned int j = i + 1; j < k; j++)
-            if (strcmp(lista[i], lista[j]) > 0) {
-                char *t = lista[i];
-                lista[i] = lista[j];
-                lista[j] = t;
-            }
-
-    size_t tam = 1;
-    for (unsigned int i = 0; i < k; i++) tam += strlen(lista[i]) + 1;
-    char *resp = malloc(tam);
-    resp[0] = '\0';
-    for (unsigned int i = 0; i < k; i++) {
-        if (i) strcat(resp, " ");
-        strcat(resp, lista[i]);
+    if (n_art == 0) {
+        free(visit); free(disc); free(low); free(parent); free(art); free(brid);
+        char *res = malloc(1);
+        res[0] = '\0';
+        return res;
     }
 
-    free(lista); free(visit); free(disc); free(low); free(parent); free(art);
-    return resp;
+    const char **nomes = malloc(n_art * sizeof(char *));
+    unsigned int idx = 0;
+    for (unsigned int i = 0; i < n; i++) {
+        if (art[i]) {
+            nomes[idx++] = g->vetor[i]->nome;
+        }
+    }
+
+    qsort(nomes, n_art, sizeof(char *), cmp_str);
+
+    size_t tamanho = 0;
+    for (unsigned int i = 0; i < n_art; i++) {
+        tamanho += strlen(nomes[i]) + 1; // espaço ou \0
+    }
+
+    char *resultado = malloc(tamanho);
+    resultado[0] = '\0';
+
+    for (unsigned int i = 0; i < n_art; i++) {
+        strcat(resultado, nomes[i]);
+        if (i < n_art - 1) strcat(resultado, " ");
+    }
+
+    free(visit);
+    free(disc);
+    free(low);
+    free(parent);
+    free(art);
+    free(brid);
+    free(nomes);
+
+    return resultado;
 }
 
 char *arestas_corte(grafo *g) {
