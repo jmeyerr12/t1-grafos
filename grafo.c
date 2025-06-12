@@ -4,7 +4,7 @@
 #include <ctype.h>
 
 // -----------------------------------------------------
-// Estruturas internas
+// estruturas internas
 
 typedef struct vizinho {
     struct vertice *vert;
@@ -27,8 +27,12 @@ struct grafo {
     unsigned int n_arestas;
 };
 
+typedef struct par_t {
+    unsigned int a, b;
+} par_t;
+
 // -----------------------------------------------------
-// Utilidades
+// utilidades
 
 static char *dup_string(const char *s) {
     size_t n = strlen(s) + 1;
@@ -82,7 +86,7 @@ static int proxima_linha(FILE *f, char *buf, size_t tam) {
 }
 
 // -----------------------------------------------------
-// API principal
+// principal
 
 grafo *le_grafo(FILE *f) {
     if (!f) return NULL;
@@ -134,7 +138,7 @@ unsigned int n_vertices(grafo *g)  { return g ? g->n_vertices : 0;    }
 unsigned int n_arestas(grafo *g)   { return g ? g->n_arestas  : 0;    }
 
 // -----------------------------------------------------
-// Componentes conexos
+// componentes conexos
 
 static void bfs_componentes(grafo *g, int *comp, unsigned int *n_comp) {
     unsigned int n = g->n_vertices;
@@ -145,17 +149,17 @@ static void bfs_componentes(grafo *g, int *comp, unsigned int *n_comp) {
 
     for (unsigned int s = 0; s < n; s++)
         if (comp[s] == -1) {
-            comp[s] = (*n_comp);
+            comp[s] = (int)(*n_comp);
             int ini = 0, fim = 0;
-            fila[fim++] = s;
+            fila[fim++] = (int)s;
 
             while (ini < fim) {
                 int u = fila[ini++];
                 for (vizinho *adj = g->vetor[u]->adj; adj; adj = adj->prox) {
                     unsigned int v = adj->vert->id;
                     if (comp[v] == -1) {
-                        comp[v] = *n_comp;
-                        fila[fim++] = v;
+                        comp[v] = (int)(*n_comp);
+                        fila[fim++] = (int)v;
                     }
                 }
             }
@@ -174,7 +178,7 @@ unsigned int n_componentes(grafo *g) {
 }
 
 // -----------------------------------------------------
-// Verificação de bipartição
+// verificação de bipartição
 
 unsigned int bipartido(grafo *g) {
     if (!g) return 0;
@@ -187,7 +191,7 @@ unsigned int bipartido(grafo *g) {
         if (cor[s] == -1) {
             cor[s] = 0; 
             int ini = 0, fim = 0;
-            fila[fim++] = s;
+            fila[fim++] = (int)s;
 
             while (ini < fim) {
                 int u = fila[ini++];
@@ -195,7 +199,7 @@ unsigned int bipartido(grafo *g) {
                     unsigned int v = adj->vert->id;
                     if (cor[v] == -1) {
                         cor[v] = 1 - cor[u];
-                        fila[fim++] = v;
+                        fila[fim++] = (int)v;
                     } else if (cor[v] == cor[u]) {
                         free(cor);
                         free(fila);
@@ -225,10 +229,10 @@ static void dijkstra_dist(grafo *g, unsigned int s, int *d) {
 
     int *fila = malloc(n * sizeof(int));
     int tam = 0;
-    fila[tam++] = s;
+    fila[tam++] = (int)s;
 
     while (tam > 0) {
-        // Encontra vértice com menor custo na fila
+        // encontra vértice com menor custo na fila
         int idx_min = 0;
         for (int i = 1; i < tam; i++) {
             if (d[fila[i]] < d[fila[idx_min]]) {
@@ -237,7 +241,7 @@ static void dijkstra_dist(grafo *g, unsigned int s, int *d) {
         }
 
         int v = fila[idx_min];
-        // Remove v da fila
+        // remove v da fila
         fila[idx_min] = fila[--tam];
 
         for (vizinho *adj = g->vetor[v]->adj; adj; adj = adj->prox) {
@@ -252,7 +256,7 @@ static void dijkstra_dist(grafo *g, unsigned int s, int *d) {
             } else if (estado[u] == 0) {
                 d[u] = custo;
                 pai[u] = v;
-                fila[tam++] = u;
+                fila[tam++] = (int)u;
                 estado[u] = 1;
             }
         }
@@ -266,7 +270,7 @@ static void dijkstra_dist(grafo *g, unsigned int s, int *d) {
 }
 
 // -----------------------------------------------------
-// Diâmetros dos componentes
+// diametros dos componentes
 
 char *diametros(grafo *g) {
     if (!g) return NULL;
@@ -314,13 +318,13 @@ char *diametros(grafo *g) {
 }
 
 // -----------------------------------------------------
-// DFS para vértices/arestas de corte
+// dfs para vértices/arestas de corte
 
 static void dfs_cortes_rec(
     grafo *g, unsigned int u,
     int *visit, int *disc, int *low, int *parent,
     char *art, unsigned int *n_art,
-    struct { unsigned int a, b; } *brid, unsigned int *n_br,
+    par_t *brid, unsigned int *n_br,
     int *tempo)
 {
     visit[u] = 1;
@@ -330,7 +334,7 @@ static void dfs_cortes_rec(
     for (vizinho *adj = g->vetor[u]->adj; adj; adj = adj->prox) {
         unsigned int v = adj->vert->id;
         if (!visit[v]) {
-            parent[v] = u;
+            parent[v] = (int)u;
             filhos++;
             dfs_cortes_rec(g, v, visit, disc, low, parent, art, n_art, brid, n_br, tempo);
             if (low[v] < low[u]) low[u] = low[v];
@@ -354,15 +358,15 @@ void dfs_cortes(
     grafo *g, unsigned int u,
     int *visit, int *disc, int *low, int *parent,
     char *art, unsigned int *n_art,
-    struct { unsigned int a, b; } *brid, unsigned int *n_br)
+    par_t *brid, unsigned int *n_br)
 {
     int tempo = 0;
     dfs_cortes_rec(g, u, visit, disc, low, parent, art, n_art, brid, n_br, &tempo);
 }
 
 int cmp_str(const void *a, const void *b) {
-    const char **sa = (const char **)a;
-    const char **sb = (const char **)b;
+    const char * const *sa = (const char * const *)a;
+    const char * const *sb = (const char * const *)b;
     return strcmp(*sa, *sb);
 }
 
@@ -373,12 +377,12 @@ char *vertices_corte(grafo *g) {
     int *disc = calloc(n, sizeof(int));
     int *low = calloc(n, sizeof(int));
     int *parent = malloc(n * sizeof(int));
-    char *art = calloc(n, sizeof(char));  // vértices de corte
+    char *art = calloc(n, sizeof(char));  // vertices de corte
 
     for (unsigned int i = 0; i < n; i++) parent[i] = -1;
 
     unsigned int n_art = 0;
-    struct { unsigned int a, b; } *brid = malloc(n * sizeof(*brid));
+    par_t *brid = malloc(n * sizeof(*brid));
     unsigned int n_br = 0;
 
     for (unsigned int i = 0; i < n; i++) {
@@ -440,7 +444,7 @@ char *arestas_corte(grafo *g) {
     char *art   = calloc(n, sizeof(char));
     for (unsigned int i = 0; i < n; i++) parent[i] = -1;
 
-    struct { unsigned int a, b; } *bridges = malloc(g->n_arestas * sizeof(*bridges));
+    par_t *bridges = malloc(g->n_arestas * sizeof(*bridges));
     unsigned int n_br = 0, n_art = 0;
 
     for (unsigned int i = 0; i < n; i++)

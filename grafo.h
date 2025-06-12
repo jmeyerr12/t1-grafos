@@ -9,6 +9,11 @@
 typedef struct grafo grafo;
 
 //------------------------------------------------------------------------------
+// estrutura de dados para representar um par de vertices (ponte/bridge)
+
+typedef struct par_t par_t;
+
+//------------------------------------------------------------------------------
 // lê um grafo de f e o devolve
 //
 // um grafo é representado num arquivo por uma "string" que é o nome
@@ -101,5 +106,27 @@ char *vertices_corte(grafo *g);
 // "a z b x c y"
 
 char *arestas_corte(grafo *g);
+
+//------------------------------------------------------------------------------
+// percorre o grafo g em profundidade a partir do vértice u, preenchendo:
+//  - visit: vértices visitados
+//  - disc: tempos de descoberta
+//  - low: menor tempo acessível
+//  - parent: pai na DFS
+//  - art: marca vértices de corte
+//  - n_art: contador de vértices de corte
+//  - brid: armazena arestas de corte
+//  - n_br: contador de arestas de corte
+//
+// é usada internamente por vertices_corte e arestas_corte
+
+void dfs_cortes(grafo *, unsigned int, int *, int *, int *, int *, char *, unsigned int *, par_t *, unsigned int *);
+
+//------------------------------------------------------------------------------
+// função de comparação usada para ordenar strings em ordem alfabética com qsort
+//
+// recebe dois ponteiros para ponteiros de strings e retorna <0, 0 ou >0 conforme a ordem alfabética
+
+int cmp_str(const void *, const void *);
 
 #endif
