@@ -3,37 +3,36 @@ Autores: João Meyer e Vitor Faria – BCC/UFPR
 
 Descrição Geral
 ---------------
-Este trabalho implementa um sistema em linguagem C para leitura e análise de grafos não-direcionados ponderados, com foco em propriedades estruturais fundamentais da Teoria dos Grafos.
+Este trabalho implementa, em linguagem C, um sistema para leitura e análise de grafos não-direcionados ponderados, com foco na aplicação de algoritmos clássicos da Teoria dos Grafos.
 
-O sistema realiza a leitura do grafo a partir da entrada padrão (stdin), e permite a identificação das seguintes propriedades:
+O sistema lê um grafo da entrada padrão (stdin) e permite:
 
-- Número de vértices e arestas
-- Número de componentes conexos
-- Verificação se o grafo é bipartido
-- Cálculo do diâmetro de cada componente conexo
-- Identificação de vértices de corte (articulação)
-- Identificação de arestas de corte (pontes)
+- Contar o número de vértices e arestas
+- Determinar o número de componentes conexos
+- Verificar se o grafo é bipartido
+- Calcular os diâmetros de cada componente
+- Listar os vértices de corte (articulações)
+- Listar as arestas de corte (pontes)
 
-Estrutura de Arquivos
----------------------
-- grafo.c  => Implementação das estruturas de dados e dos algoritmos principais do sistema.
-- grafo.h  => Cabeçalho fornecido com a definição das funções utilizadas por teste.c.
-- teste.c  => Arquivo fornecido com o programa principal que utiliza a API para carregar o grafo e imprimir os resultados.
+O grafo é representado com listas de adjacência e mapeamento de nomes de vértices.
+
+Arquivos
+--------
+- grafo.c  => Implementação das funções definidas no cabeçalho.
+- grafo.h  => Interface pública fornecida, com protótipos e estrutura do grafo.
+- teste.c  => Programa principal fornecido que usa a API definida em grafo.h.
 
 Compilação
 ----------
-Certifique-se de que o compilador gcc está instalado.
-Para compilar o projeto, utilize:
+Use `make` para compilar o projeto. O executável será gerado como `analisador`.
 
     make
 
-O executável gerado será chamado 'teste'.
-
 Execução
 --------
-    ./teste < teste.txt
+    ./analisador < teste.txt
 
-Exemplo de Entrada (teste.in)
+Exemplo de Entrada (teste.txt)
 ------------------------------
 MeuGrafoDeTeste
 A
@@ -60,23 +59,34 @@ arestas de corte: D E
 Detalhes da Implementação (grafo.c)
 -----------------------------------
 Representação:
-- O grafo é representado como uma lista de adjacência, usando hash maps para mapear os nomes dos vértices para índices internos.
-- As arestas armazenam peso, com valor padrão 1 caso não seja especificado.
+- O grafo é representado como uma lista de adjacência, com vértices mapeados a índices internos.
+- Arestas podem ter pesos inteiros não negativos. Caso o peso não seja informado, assume-se peso 1.
 
 Componentes principais:
 
 contar_componentes()
-- Usa DFS (busca em profundidade) para identificar componentes conexos.
-- Marca os vértices visitados e incrementa o contador de componentes.
+- Utiliza busca em profundidade (DFS) para percorrer o grafo e contar os componentes conexos.
 
 verificar_bipartido()
-- Aplica DFS com coloração alternada para detectar conflitos de bipartição.
-- Se dois vértices vizinhos forem coloridos iguais, o grafo não é bipartido.
+- Aplica uma busca em largura (BFS) com coloração alternada de vértices.
+- Se dois vértices vizinhos recebem a mesma cor, o grafo não é bipartido.
 
 calcular_diametros()
-- Para cada componente conexo, realiza duas BFS sucessivas para encontrar o maior caminho (diâmetro).
-- Usa uma BFS padrão iniciando de um vértice qualquer e depois da extremidade mais distante encontrada.
+- Usa o algoritmo de Dijkstra para encontrar o diâmetro de cada componente conexo.
+- Mesmo que o grafo seja não ponderado, o algoritmo trata arestas sem peso como de peso 1.
 
-buscar_articulacoes() e buscar_pontes()
-- Baseadas em algoritmo de Tarjan, usando low e discovery time.
-- Detectam vértices e arestas cuja remoção aumenta o número de componentes conexos.
+vertices_corte()
+- Implementa o algoritmo de Tarjan para encontrar vértices de articulação (corte) por meio de low-link values.
+- Os resultados são armazenados como strings com os nomes dos vértices em ordem alfabética.
+
+arestas_corte()
+- Também baseado em Tarjan, identifica arestas cuja remoção aumenta o número de componentes (pontes).
+- As arestas são listadas como pares de vértices, ordenados alfabeticamente e apresentados em ordem crescente.
+
+Funções auxiliares:
+- dfs_cortes(): versão iterativa da DFS que preenche estruturas auxiliares para corte.
+- cmp_str(): função auxiliar de comparação usada com qsort para ordenar nomes alfabeticamente.
+
+Observação sobre Tarjan:
+-------------------------
+Para as funções de corte utilizamos o algoritmo de Tarjan. Embora o algoritmo de Tarjan propriamente dito não tenha sido apresentado em aula, sua base está diretamente relacionada aos conceitos estudados, como busca em profundidade (DFS), tempos de descoberta (disc) e os menores tempos acessíveis (low). O algoritmo de Tarjan estende esses conceitos para identificar vértices de articulação (cujos filhos na DFS não conseguem se reconectar com ancestrais sem passar por ele) e arestas de corte (que desconectam componentes se forem removidas). A lógica central consiste em rastrear os caminhos de retorno possíveis durante a DFS, marcando pontos onde a ausência desses caminhos revela dependências estruturais críticas no grafo.
